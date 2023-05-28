@@ -54,6 +54,7 @@ def data_generator(image_size, sentence_len, sentence_max, batch_size=32):
         yield [x_img, x_sen], [y_img, y_sen]
         
 
+
 image_shape=(100, 100, 3)
 
 sentence_len=100
@@ -80,24 +81,32 @@ decoder_model.add(TimeDistributed(Dense(max_word, activation="softmax")))
 out_sen = decoder_model(out_img)
 
 model = Model(inputs=[input_img, input_sen], outputs=[out_img, out_sen])
-model.compile(optimizer=Adam(0.001), loss=['mae', 'categorical_crossentropy'], metrics={'sentence_reconstruction': 'categorical_accuracy'})
+model.compile(optimizer=Adam(0.002), loss=['mae', 'categorical_crossentropy'], metrics={'sentence_reconstruction': 'categorical_accuracy'})
 encoder_model = Model(inputs=[input_img, input_sen], outputs=[out_img])
+#print(encoder_model)
 
+#задаём размер изображения (ширина,высота и количество цветовых каналов)
 image_shape = (100, 100, 3)
-sentence_len = 100
+sentence_len = 100 
 max_word = 256
 
 symbols = 0
 
+#из этого файла мы получим текст,который запишем в изобржаение
 with open('./data/secret.txt', 'r') as f:
     str1 = f.read()
     
 symbols = len(str1)
+
+#передаём размеры изображения,длину предложения и количество пакетов для одной эпохи
+#всё это необхожимо для обучения нашей НС
 gen = data_generator(image_shape, sentence_len, max_word, 64)
 
-model.fit(gen, epochs=100, steps_per_epoch=348, callbacks=[ModelCheckpoint("best_model_mae_cat_3conv_100ep.h5", monitor="loss", save_best_only=True),TensorBoard(log_dir='logs', histogram_freq=0, write_graph=True, write_images=False)])
+#обучаем модель
+model.fit(gen, epochs=128, steps_per_epoch=348, callbacks=[ModelCheckpoint("best_model_mae_cat_3conv_128ep_248steps.h5", monitor="loss", save_best_only=True),TensorBoard(log_dir='logs', histogram_freq=0, write_graph=True, write_images=False)])
 
-
+#функция для кодирования нашего сообщения сначала в двоичный формат,а потом в ascii
+#по этой ссылке можно посмотреть: https://medium.com/@stephanie.werli/image-steganography-with-python-83381475da57
 def encode_msg(message, sentence_len):
     sen = np.zeros((1, sentence_len)) #создаём массив из 100 элементов,заполненный нулями
     for i, a in enumerate(message.encode("ascii")):
@@ -105,34 +114,52 @@ def encode_msg(message, sentence_len):
     
     return sen
 
-
+#декодируем сообщение,которое извлекли из изображения
 def ascii_decode(message):
     return ''.join(chr(int(a)) for a in message[0].argmax(-1))
 
-
-model = load_model('best_model_mae_cat_3conv_100ep.h5')
+#загружаем обученную модель
+model = load_model('best_model_mae_cat_3conv_100ep_248steps.h5')
 encoder = Model(model.input, model.get_layer('image_reconstruction').output)
+
+#для декодрирования нам необходим слой,который извлекает предложение из изображения
 decoder = model.get_layer('sentence_reconstruction')
 
+#загружаем изображение в формате массива float,в которое запишем сообщение
 img = np.expand_dims(img_to_array(load_img("./data/train/2232.jpg", target_size=(100, 100))) / 255.0, axis=0)
 
+#сначала кодируем сообщение из файла
 sen = encode_msg(str1,100)
+
+
 y = encoder.predict([img, sen])
 y_hat = decoder.predict(y)
 
+#создаём лист,который содержит исходное и закодированное изображение для визуального сравнения
 img_to_show=[load_img("./data/train/2232.jpg", target_size=(100,100)), y[0]]
 titles=["Input image", "Image after encoding"]
 
+#отобразим полученное изображение отдельно от исходного
+from PIL import Image
+formatted = (img_to_show[1] * 255 / np.max(img_to_show[1])).astype('uint8')
+img = Image.fromarray(formatted)
+img.show()
+
+
+#создаём фигуру,которая содержит два изображения (исходное и закодированное) 
 plt.figure(num=1, figsize=(4, 2))
 for i in range(2):
     plt.subplot(1, 2, i+1), plt.imshow(img_to_show[i])
     plt.xticks([])
     plt.yticks([])
-    plt.title(titles[i])
-    plt.savefig("outputMAE_categ_2232_100ep.jpg")
+    plt.title(titles[i]) #создаём подписи над каждым изображением
+    plt.savefig("outputMAE_categ_2232_128ep_248steps.jpg")
 plt.show()
 
+#выводим декодированное сообщение
 print("\n\n\nDecode message: "+ascii_decode(y_hat))
 
+#записываем его в новый файл
 with open('./data/decode.txt', 'w') as f:
     f.write(ascii_decode(y_hat))
+    
