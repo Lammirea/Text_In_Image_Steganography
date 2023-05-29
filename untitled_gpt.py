@@ -13,8 +13,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStoppi
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from keras.optimizers import Adam
-from lpips import LPIPS
+from tensorflow.keras.optimizers import Adam
+
 
 if torch.cuda.is_available():
     device = "cuda:0"
@@ -55,55 +55,52 @@ def data_generator(image_size, sentence_len, sentence_max, batch_size=32):
         
 
 
-image_shape=(100, 100, 3)
+image_shape=(200, 200, 3)
 
-sentence_len=100
-max_word=256
+sentence_len=200
+max_word=356
 
 input_img = Input(image_shape)
 input_sen = Input((sentence_len,))
-embed_sen = Embedding(max_word, 100)(input_sen)
+
+#надо подавать матрицу в embedding
+embed_sen = Embedding(max_word, 200)(input_sen)
 flat_emb_sen = Flatten()(embed_sen)
 flat_emb_sen = Reshape((image_shape[0], image_shape[1], 1))(flat_emb_sen)
+
 
 trans_input_img = Conv2D(64, 1, activation='relu', padding = 'same')(input_img)
 x1 = Conv2D(32,1, activation='relu', padding = 'same')(trans_input_img)
 x2 = Conv2D(16,1, activation='relu', padding = 'same')(x1)
 
-enc_input = Concatenate(axis=-1)([flat_emb_sen, trans_input_img,x1,x2])
+enc_input = Concatenate(axis=-1)([flat_emb_sen, x2])
 
+#фильтры делать не квадратным
 out_img = Conv2D(3, 1, activation='relu', padding = 'same',name='image_reconstruction')(enc_input)
 
 decoder_model = Sequential(name="sentence_reconstruction")
-decoder_model.add(Conv2D(1, 1, input_shape=(100, 100, 3)))
-decoder_model.add(Reshape((sentence_len, 100)))
+decoder_model.add(Conv2D(1, 1, input_shape=(200, 200, 3)))
+decoder_model.add(Reshape((sentence_len, 200)))
 decoder_model.add(TimeDistributed(Dense(max_word, activation="softmax")))
 out_sen = decoder_model(out_img)
 
 model = Model(inputs=[input_img, input_sen], outputs=[out_img, out_sen])
 model.compile(optimizer=Adam(0.002), loss=['mae', 'categorical_crossentropy'], metrics={'sentence_reconstruction': 'categorical_accuracy'})
-encoder_model = Model(inputs=[input_img, input_sen], outputs=[out_img])
-#print(encoder_model)
+# encoder_model = Model(inputs=[input_img, input_sen], outputs=[out_img])
+print(model)
 
 #задаём размер изображения (ширина,высота и количество цветовых каналов)
-image_shape = (100, 100, 3)
-sentence_len = 100 
-max_word = 256
+image_shape = (200, 200, 3)
+sentence_len = 200 
+max_word = 356
 
-symbols = 0
-
-#из этого файла мы получим текст,который запишем в изобржаение
-with open('./data/secret.txt', 'r') as f:
-    str1 = f.read()
-    
-symbols = len(str1)
 
 #передаём размеры изображения,длину предложения и количество пакетов для одной эпохи
 #всё это необхожимо для обучения нашей НС
-gen = data_generator(image_shape, sentence_len, max_word, 64)
+gen = data_generator(image_shape, sentence_len, max_word, 32)
 
 #обучаем модель
-model.fit(gen, epochs=128, steps_per_epoch=348, callbacks=[ModelCheckpoint("best_model_mae_cat_3conv_128ep_248steps.h5", monitor="loss", save_best_only=True),TensorBoard(log_dir='logs', histogram_freq=0, write_graph=True, write_images=False)])
+model.fit(gen, epochs=128, steps_per_epoch=348, callbacks=[ModelCheckpoint("best_model_mae_cat_3conv_128ep_248steps_200img.h5", monitor="loss", save_best_only=True),TensorBoard(log_dir='logs', histogram_freq=0, write_graph=True, write_images=False)])
 
 #функция для кодирования нашего сообщения сначала в двоичный формат,а потом в ascii
 #по этой ссылке можно посмотреть: https://medium.com/@stephanie.werli/image-steganography-with-python-83381475da57
@@ -128,8 +125,16 @@ decoder = model.get_layer('sentence_reconstruction')
 #загружаем изображение в формате массива float,в которое запишем сообщение
 img = np.expand_dims(img_to_array(load_img("./data/train/2232.jpg", target_size=(100, 100))) / 255.0, axis=0)
 
+
+#из этого файла мы получим текст,который запишем в изобржаение
+with open('./data/secret.txt', 'r') as f:
+    str1 = f.read()
+    
+symbols = len(str1)
+
+
 #сначала кодируем сообщение из файла
-sen = encode_msg(str1,100)
+sen = encode_msg(str1,200)
 
 
 y = encoder.predict([img, sen])
