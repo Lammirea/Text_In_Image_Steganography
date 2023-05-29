@@ -114,19 +114,19 @@ model.fit(gen, epochs=128, steps_per_epoch=248, callbacks=[ModelCheckpoint("mae_
 #функция для кодирования нашего сообщения сначала в двоичный формат,а потом в ascii
 def encode_msg(message, sentence_len):
     
-    if sentence_len <= 100:
+     if sentence_len <= 100:
         sen = np.zeros((1, sentence_len)) #создаём массив из 100 элементов,заполненный нулями
         for i, a in enumerate(message.encode("ascii")):
             sen[0, i] = a
         msg = sen
     else:
-        sen = np.zeros((1, (sentence_len - 100) + sentence_len )) #надо добавить до значения не меньше длины строки и делящегося на 100 нацело
+        sen = np.zeros((1, 100 * (sentence_len//100 + 1))) #надо добавить до значения не меньше длины строки и делящегося на 100 нацело
         for i, a in enumerate(message.encode("ascii")):
             sen[0, i] = a
         if sentence_len % 100 == 0:
             msg = np.array_split(sen, sentence_len/100)
         else:
-            msg = np.array_split(sen, (sentence_len/100)+1)
+            msg = np.array_split(sen, (sentence_len//100)+1)
     
     return sen
 
