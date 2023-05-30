@@ -71,7 +71,7 @@ max_word=256
 input_sen = Input((sentence_len,))
 
 #надо подавать матрицу в embedding
-embed_sen = Embedding(max_word, 100, input_length = 100)(input_sen)
+embed_sen = Embedding(max_word, 100, input_length = 100)(input_sen)#на выходе (batch_size, inputs, VEC_DIM)
 flat_emb_sen = Flatten()(embed_sen)
 flat_emb_sen = Reshape((image_shape[0], image_shape[1], 1))(flat_emb_sen)
 
