@@ -4,7 +4,10 @@ Created on Thu May 25 13:30:27 2023
 
 @author: Venya
 """
+https://medium.com/@bravinwasike18/building-a-deep-learning-model-with-keras-and-resnet-50-9dd6f4eb3351
 
+https://github.com/gaborvecsei/Neural-Network-Steganography
+    
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential, load_model
 from tensorflow.keras.layers import *
